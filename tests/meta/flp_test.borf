@@ -1,0 +1,19 @@
+-- Functional Logic Programming Test
+-- This tests the foundation for Verse-like error handling
+
+-- Create some logic variables
+"x" var -> x
+"y" var -> y
+
+-- Create a simple value for binding
+42 -> val
+
+-- Bind the value to our variable
+x val bind -> bound_x
+
+-- Test simple fallible/infallible contexts
+[bound_x] fallible -> fallible_ctx
+[bound_x] infallible -> infallible_ctx
+
+-- Return 1 for success
+1

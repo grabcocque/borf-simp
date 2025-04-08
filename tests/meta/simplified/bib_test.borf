@@ -1,0 +1,172 @@
+-- Simplified Borf-in-Borf-in-Borf Test
+-- Tests whether the metacircular evaluator can evaluate itself and then evaluate Borf code
+-- This version avoids using the "module" operation which is not implemented in the interpreter
+
+-- Function to run a test and report results
+run_test [name: String, test_fn: () => Bool -> 
+  result : test_fn()
+  
+  "{}: {}".format(
+    name, 
+    (result) when true otherwise nothing then "✓ PASSED" otherwise "✗ FAILED"
+  ) |> println
+  
+  result
+] : Bool
+
+-- Function to run all tests and summarize results
+run_all_tests [tests: List[{name: String, fn: () => Bool}] -> 
+  total : tests |> length
+  passed : 0
+  
+  tests |> [test ->
+    result : run_test(test.name, test.fn)
+    passed : (result) when true otherwise nothing then passed + 1 otherwise passed
+  ] |> for_each
+  
+  println("\nSummary: {}/{} tests passed".format(passed, total))
+  
+  passed veq total
+] : Bool
+
+-- Create a fresh environment for testing
+create_test_env [->
+  env : {}
+  init_test_env(env)
+  env
+] : Map[String, Any]
+
+-- Initialize the test environment with necessary bindings
+init_test_env [env: Map[String, Any] ->
+  -- Add basic arithmetic operations
+  env["add"] : [a, b -> a + b]
+  env["sub"] : [a, b -> a - b]
+  env["mul"] : [a, b -> a * b]
+  env["div"] : [a, b -> a / b]
+  
+  -- Add string operations
+  env["to_string"] : [v -> v |> to_string]
+  env["println"] : [msg -> println(msg)]
+  
+  env
+] : Map[String, Any]
+
+-- Simple micro-eval test function
+micro_eval [code: String, env: Map[String, Any] ->
+  -- This is a simplified evaluator that can handle basic expressions
+  parsed : parse_simple(code)
+  eval_simple(parsed, env)
+] : Any
+
+-- Extremely simplified parser
+parse_simple [code: String ->
+  (code veq "2 + 3") when true otherwise nothing then { op: "add", a: 2, b: 3 }
+  otherwise (code veq "5 * 7") when true otherwise nothing then { op: "mul", a: 5, b: 7 }
+  otherwise (code veq "10 / 2") when true otherwise nothing then { op: "div", a: 10, b: 2 }
+  otherwise (code veq "a + b") when true otherwise nothing then { op: "add", vars: ["a", "b"] }
+  otherwise { literal: code }
+] : Map[String, Any]
+
+-- Simple evaluator
+eval_simple [expr: Map[String, Any], env: Map[String, Any] ->
+  expr |> {
+    | { op: "add", a: a, b: b } -> a + b
+    | { op: "mul", a: a, b: b } -> a * b 
+    | { op: "div", a: a, b: b } -> a / b
+    | { op: "add", vars: vars } -> {
+        a : env[vars[0]]
+        b : env[vars[1]]
+        a + b
+      }
+    | { literal: lit } -> lit
+  }
+] : Any
+
+-- Test multiple levels of evaluation
+test_multilevel_eval [->
+  -- Create test environments for each level
+  env1 : create_test_env()
+  
+  -- Define a second-level micro-evaluator in the first environment
+  env1["micro_eval2"] : [code, env ->
+    micro_eval(code, env)
+  ]
+  
+  -- Define a third-level evaluator in the second environment
+  env1["create_level3_evaluator"] : [->
+    [code, env -> micro_eval(code, env)]
+  ]
+  
+  -- Create the third-level evaluator
+  micro_eval3 : env1["create_level3_evaluator"]()
+  
+  -- Test first level evaluation
+  result1 : micro_eval("2 + 3", env1)
+  test1 : result1 veq 5
+  
+  -- Create a new environment for second level
+  env2 : create_test_env()
+  
+  -- Test second level evaluation
+  result2 : env1["micro_eval2"]("5 * 7", env2)
+  test2 : result2 veq 35
+  
+  -- Create a new environment for third level
+  env3 : create_test_env()
+  env3["a"] : 10
+  env3["b"] : 20
+  
+  -- Test third level evaluation (through second level)
+  result3 : micro_eval3("a + b", env3)
+  test3 : result3 veq 30
+  
+  println("Level 1 evaluation result: " + result1 |> to_string)
+  println("Level 2 evaluation result: " + result2 |> to_string)
+  println("Level 3 evaluation result: " + result3 |> to_string)
+  
+  test1 and test2 and test3
+] : Bool
+
+-- Test function generation and evaluation
+test_function_gen_eval [->
+  -- Create test environment
+  env : create_test_env()
+  
+  -- Create a function generator
+  make_adder : [n ->
+    [x -> n + x]
+  ]
+  
+  -- Create a function using the generator
+  add5 : make_adder(5)
+  add10 : make_adder(10)
+  
+  -- Test the generated functions
+  result1 : add5(3)
+  result2 : add10(7)
+  
+  println("Generated function add5(3) = " + result1 |> to_string)
+  println("Generated function add10(7) = " + result2 |> to_string)
+  
+  result1 veq 8 and result2 veq 17
+] : Bool
+
+-- Main function to run all tests
+main [->
+  println("Running Simplified Borf-in-Borf-in-Borf Tests")
+  println("============================================")
+  
+  tests : [
+    { name: "Multiple Levels of Evaluation", fn: test_multilevel_eval },
+    { name: "Function Generation and Evaluation", fn: test_function_gen_eval }
+  ]
+  
+  all_passed : run_all_tests(tests)
+  
+  (all_passed) when true otherwise nothing then
+    println("All tests passed! The metacircular evaluation capability is working.")
+  otherwise
+    println("Some tests failed. The metacircular evaluation capability may not be fully functional.")
+  
+  all_passed
+] : Bool

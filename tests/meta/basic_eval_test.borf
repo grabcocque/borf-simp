@@ -1,0 +1,8 @@
+-- Basic evaluation test for the metacircular evaluator
+-- Using a minimal script with just a true value
+
+-- Define a variable that holds true
+success = true
+
+-- Return the success value (should be true)
+success

@@ -1,0 +1,31 @@
+-- Expression-oriented Control Flow Test
+-- This tests the expression-oriented nature of Borf's control flow
+
+-- Test if expression
+true 42 0 if -> result1  -- Should select 42
+false 42 0 if -> result2  -- Should select 0
+
+-- Test value equality
+result1 42 == -> test1    -- Should be true (1)
+result2 0 == -> test2     -- Should be true (1) 
+
+-- Create a list
+1 2 3 3 list -> numbers
+
+-- Test list operations
+numbers 1 get -> second   -- Get the second item (2)
+second 2 == -> test3      -- Should be true (1)
+
+-- Test sequence length
+numbers length -> len
+len 3 == -> test4         -- Should be true (1)
+
+-- Create a range
+0 5 range -> r
+r length -> range_len
+range_len 5 == -> test5   -- Should be true (1)
+
+-- Combine all tests with logical AND
+test1 test2 test3 test4 test5 and and and and
+
+-- The final result should be 1 (true) if all tests pass

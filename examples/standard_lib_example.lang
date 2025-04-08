@@ -1,0 +1,121 @@
+-- Standard Library Example
+-- Demonstrates the use of standard library features
+
+import prim
+import syntax
+
+--[[ 
+  This example shows how to use the standard library
+  modules to build a simple application.
+]]--
+
+-- Define a function that calculates the average of a list of numbers
+calculate_average : (List[Num]) => ?Num
+[nums -> 
+  -- Check if the list is empty
+  nums |> is_empty |> [
+    true -> Nothing,
+    false -> 
+      -- Calculate sum and count
+      let sum = nums |> fold [acc, x -> acc + x] 0 in
+      let count = nums |> length in
+      
+      -- Calculate average and return
+      sum / count
+  ]
+] -> calculate_average
+
+-- Example of using optional types for safe division
+safe_divide : (Num, Num) => ?Num
+[x, y -> 
+  0 == y |> [
+    true -> Nothing,
+    false -> x / y
+  ]
+] -> safe_divide
+
+-- Example of using linear types for resource management
+process_file : (String) => ?String
+[filename -> 
+  -- The with_file function ensures the file is closed
+  -- even if an error occurs
+  filename |> with_file [!file -> 
+    -- Read the file contents
+    file |> read_contents
+  ]
+] -> process_file
+
+-- Example of metaprogramming with quotation and unquotation
+generate_add_n : (Num) => [Num => Num]
+[n -> 
+  -- Create a function that adds n to its argument
+  '[x -> x + n]
+] -> generate_add_n
+
+-- Use the generated function
+add_5 -> 5 |> generate_add_n
+
+-- Example of using map from the standard library
+double_all : (List[Num]) => List[Num]
+[nums -> 
+  -- Map each number to its double
+  nums |> map [x -> x * 2]
+] -> double_all
+
+-- Example of optional return value chaining
+chain_operations : (Num) => ?Num
+[x -> 
+  -- Chain multiple operations that might fail
+  x |> safe_divide(10) |> [
+    result -> 
+      result |> [-> result + 5] |> safe_divide(2) |> [
+        final -> final * 3
+      ]
+  ]
+] -> chain_operations
+
+-- Example of pattern matching on syntax
+simplify_expr : ('a) => 'a
+[expr -> 
+  expr |> [
+    '(x + 0) -> 'x,
+    '(0 + x) -> 'x,
+    '(x * 1) -> 'x,
+    '(1 * x) -> 'x,
+    '(x - 0) -> 'x,
+    '(x / 1) -> 'x,
+    _ -> expr
+  ]
+] -> simplify_expr
+
+-- Define a pipeline of operations using the pipeline operator
+process_data : (List[Num]) => ?Num
+[data -> 
+  data |> 
+    double_all |>
+    [xs -> xs |> map [x -> x + 1]] |>
+    calculate_average
+] -> process_data
+
+-- Example usage
+main : () => ()
+[-> 
+  -- Create a list of numbers
+  [1, 2, 3, 4, 5] -> numbers
+  
+  -- Process the data and print the result
+  numbers |> process_data |> [
+    result -> "The result is: " ++ result |> print,
+    Nothing -> "No result was calculated." |> print
+  ]
+  
+  -- Demonstrate metaprogramming
+  42 |> add_5 -> result
+  "5 + 42 = " ++ result |> print
+  
+  -- Demonstrate code simplification
+  '(x + 0) |> simplify_expr |> [
+    'x -> "Successfully simplified!" |> print,
+    _ -> "Failed to simplify." |> print
+  ]
+]

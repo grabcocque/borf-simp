@@ -1,0 +1,336 @@
+-- Categorical structures for Borf
+-- Inspired by Catlab.jl
+module catlab
+
+import prim
+
+--[[ 
+  Categorical abstractions for Borf
+  This module provides the foundation for working with categorical 
+  structures like ACSet, WiringDiagram, and interaction nets.
+]]--
+
+-- Core category theory structures
+-- ==============================
+
+-- Import the type metaprogramming tools
+import syntax
+
+-- Define type builder functions for reusable type patterns
+make_category_type : () => Type
+make_category_type: [->
+  -- Create a category type using type quotation
+  #{
+    objects: Set,
+    morphisms: Set,
+    dom: (Morphism) => Object,       -- Domain of a morphism
+    cod: (Morphism) => Object,       -- Codomain of a morphism
+    id: (Object) => Morphism,        -- Identity morphism
+    compose: (Morphism, Morphism) => ?Morphism  -- Composition of morphisms
+  }
+]
+
+-- Define a functor between categories using type metaprogramming
+make_functor_type : () => Type
+make_functor_type: [->
+  -- Use the quasiquoted type to create a functor
+  #{
+    dom_cat: make_category_type() $,
+    cod_cat: make_category_type() $,
+    obj_map: (Object) => Object,     -- Object mapping
+    morph_map: (Morphism) => Morphism -- Morphism mapping
+  }
+]
+
+-- Create a natural transformation type using type quotation
+make_nat_transform_type : () => Type
+make_nat_transform_type: [->
+  -- Use the functor type in the natural transformation type
+  #{
+    dom: make_functor_type() $,
+    cod: make_functor_type() $,
+    components: (Object) => Morphism
+  }
+]
+
+-- Create a field type generator for ACSet components
+make_map_type : (Type) => Type
+make_map_type: [key_type ->
+  #{ key_type $: Any }
+]
+
+-- ACSet (Attributed C-Set) built using type composition
+make_acset_type : () => Type
+make_acset_type: [->
+  #{
+    schema: CSet,         -- C-Set schema defining structure
+    tables: #String make_map_type |> $,  -- Tables storing entities and attributes
+    attr: #String make_map_type |> $,    -- Attribute data
+    indices: #String make_map_type |> $  -- Indexing structure
+  }
+]
+
+-- Define the actual types from the generators
+type Category => make_category_type |> $
+type Functor => make_functor_type |> $
+type NatTransform => make_nat_transform_type |> $ 
+type ACSet => make_acset_type |> $
+
+-- Operations on ACSets
+add_part : (ACSet, SchemaType, Map) => Int
+add_part: [acset, type, attrs ->
+  -- Add a part to the ACSet with attributes
+  -- Returns the ID of the new part
+]
+
+add_parts : (ACSet, SchemaType, Int) => List[Int]
+add_parts: [acset, type, count ->
+  -- Add multiple parts of the same type
+  -- Returns list of IDs for the new parts
+]
+
+set_subpart : (ACSet, SchemaType, Int, SchemaType, Int) => ACSet
+set_subpart: [acset, from_type, from_id, to_type, to_id ->
+  -- Set relationship between parts
+]
+
+set_prop : (ACSet, Int, String, Any) => ACSet
+set_prop: [acset, part_id, prop, value ->
+  -- Set a property value for a part
+]
+
+get_prop : (ACSet, Int, String) => Any
+get_prop: [acset, part_id, prop ->
+  -- Get a property value
+]
+
+incident : (ACSet, SchemaType, Int) => List[Int]
+incident: [acset, type, id ->
+  -- Get all parts incident to the given part
+]
+
+-- Wiring Diagrams
+-- ==============
+-- Represents compositional structure of systems as diagrams
+
+-- Create a port type using type quotation
+make_port_type : () => Type
+make_port_type: [->
+  #{
+    type: Type,            -- Type of the port
+    direction: Direction   -- Input or output
+  }
+]
+
+-- Create a box type using the port type
+make_box_type : () => Type
+make_box_type: [->
+  port_type -> make_port_type() $
+  #{
+    name: String,                -- Name of the box
+    inputs: List[port_type $],    -- Input ports
+    outputs: List[port_type $]    -- Output ports
+  }
+]
+
+-- Create a wire type using type quotation
+make_wire_type : () => Type
+make_wire_type: [->
+  #{
+    source_box: Int,     -- Source box ID (0 = outer box)
+    source_port: Int,    -- Source port index
+    target_box: Int,     -- Target box ID (0 = outer box)
+    target_port: Int     -- Target port index
+  }
+]
+
+-- Create a wiring diagram type that composes these parts
+make_wiring_diagram_type : () => Type
+make_wiring_diagram_type: [->
+  box_type -> make_box_type() $
+  port_type -> make_port_type() $
+  wire_type -> make_wire_type() $
+  
+  #{
+    boxes: List[box_type $],      -- Component boxes
+    wires: List[wire_type $],     -- Connections between boxes
+    inputs: List[port_type $],    -- Input ports of the diagram
+    outputs: List[port_type $]    -- Output ports of the diagram
+  }
+]
+
+-- Define the concrete types from the generators
+type Port => make_port_type |> $
+type Box => make_box_type |> $
+type Wire => make_wire_type |> $
+type WiringDiagram => make_wiring_diagram_type |> $
+
+-- Create a new empty wiring diagram
+empty_diagram : (List[Port], List[Port]) => WiringDiagram
+empty_diagram: [inputs, outputs ->
+  -- Create an empty diagram with the given interface
+]
+
+-- Add a box to a diagram
+add_box : (WiringDiagram, Box) => Int
+add_box: [diagram, box ->
+  -- Add a box to the diagram
+  -- Returns the ID of the new box
+]
+
+-- Connect two ports with a wire
+add_wire : (WiringDiagram, Int, Int, Int, Int) => WiringDiagram
+add_wire: [diagram, src_box, src_port, tgt_box, tgt_port ->
+  -- Add a wire from source port to target port
+]
+
+-- Compose two wiring diagrams sequentially
+compose : (WiringDiagram, WiringDiagram) => WiringDiagram
+compose: [d1, d2 ->
+  -- Compose two diagrams by connecting outputs of d1 to inputs of d2
+]
+
+-- Compose two wiring diagrams in parallel
+tensor : (WiringDiagram, WiringDiagram) => WiringDiagram
+tensor: [d1, d2 ->
+  -- Place two diagrams side by side
+]
+
+-- Lafont Interaction Nets
+-- =====================
+-- Representation of interaction nets for computation
+
+-- Create a cell type using type quotation
+make_cell_type : () => Type
+make_cell_type: [->
+  #{
+    agent: Symbol,        -- Agent/node type
+    principal: Port,      -- Principal port
+    auxiliary: List[Port] -- Auxiliary ports
+  }
+]
+
+-- Create a net type using the cell type
+make_net_type : () => Type
+make_net_type: [->
+  cell_type -> make_cell_type() $
+  wire_type -> make_wire_type() $
+  port_type -> make_port_type() $
+  
+  #{
+    cells: List[cell_type $],  -- Cells in the net
+    wires: List[wire_type $],  -- Connections between cells
+    free: List[port_type $]    -- Unconnected ports (the interface)
+  }
+]
+
+-- Define the concrete types from the generators
+type Cell => make_cell_type |> $
+type Net => make_net_type |> $
+
+-- Create a new cell
+create_cell : (Symbol, Int) => Cell
+create_cell: [agent, arity ->
+  -- Create a new cell with the given agent type and arity
+]
+
+-- Create an empty net
+empty_net : () => Net
+empty_net: [->
+  -- Create an empty interaction net
+]
+
+-- Add a cell to the net
+add_cell : (Net, Cell) => Int
+add_cell: [net, cell ->
+  -- Add a cell to the net
+  -- Returns the ID of the new cell
+]
+
+-- Connect ports in the net
+connect : (Net, Int, Int, Int, Int) => Net
+connect: [net, cell1, port1, cell2, port2 ->
+  -- Connect port1 of cell1 to port2 of cell2
+]
+
+-- Convert a wiring diagram to an interaction net
+wiring_to_net : (WiringDiagram) => Net
+wiring_to_net: [diagram ->
+  -- Convert a wiring diagram to an interaction net
+]
+
+-- Algebraic Rewriting
+-- =================
+-- Rewriting systems for interaction nets
+
+-- Create a rule type using type quotation
+make_rule_type : () => Type
+make_rule_type: [->
+  net_type -> make_net_type() $
+  
+  #{
+    name: String,        -- Name of the rule
+    lhs: net_type $,      -- Left-hand side pattern
+    rhs: net_type $,      -- Right-hand side replacement
+    constraint: ?Code    -- Optional constraint on when rule applies
+  }
+]
+
+-- Create a rewrite system type using the rule type
+make_rewrite_system_type : () => Type
+make_rewrite_system_type: [->
+  rule_type -> make_rule_type() $
+  
+  #{
+    rules: List[rule_type $]   -- Rewriting rules
+  }
+]
+
+-- Define the concrete types from the generators
+type Rule => make_rule_type |> $
+type RewriteSystem => make_rewrite_system_type |> $
+
+-- Create a rewrite rule
+create_rule : (String, Net, Net, ?Code) => Rule
+create_rule: [name, lhs, rhs, constraint ->
+  -- Create a rewrite rule
+]
+
+-- Create a rewrite system
+create_rewrite_system : (List[Rule]) => RewriteSystem
+create_rewrite_system: [rules ->
+  -- Create a rewrite system with the given rules
+]
+
+-- Apply a rewrite rule if possible
+apply_rule : (Net, Rule) => ?Net
+apply_rule: [net, rule ->
+  -- Apply the rule to the net if it matches
+  -- Returns the rewritten net or Nothing
+]
+
+-- Apply a rewrite system until normal form
+normalize : (Net, RewriteSystem) => Net
+normalize: [net, system ->
+  -- Apply rewrite rules until no rule applies
+]
+
+-- Find all possible rule applications
+find_matches : (Net, Rule) => List[Map]
+find_matches: [net, rule ->
+  -- Find all places where the rule's LHS matches in the net
+  -- Returns a list of match mappings
+]
+
+-- Apply a specific match
+apply_match : (Net, Rule, Map) => Net
+apply_match: [net, rule, match ->
+  -- Apply the rule at the specific match location
+]
+
+-- Helper for pattern matching on nets
+match_net : (Net, Net) => ?Map
+match_net: [net, pattern ->
+  -- Try to match the pattern against the net
+  -- Returns a mapping from pattern cells to net cells, or Nothing if no match
+]

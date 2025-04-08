@@ -1,0 +1,165 @@
+-- Fallible Context and Narrowing Operations
+-- This module implements the foundation for functional logic programming
+-- with fallible/infallible contexts and narrowing semantics
+
+-- The core idea is to have computations that can either:
+-- 1. Succeed and produce a value
+-- 2. Fail but ensure that an alternative path will be found
+
+-- Contexts
+-- ========
+
+-- Mark a context as fallible - operations within may fail
+fallible: [computation ->
+  -- Execute the computation in a fallible context
+  -- In this context, failures are tracked but allowed
+  
+  -- Create a fallible context wrapper
+  { 
+    type: "context",
+    mode: "fallible",
+    computation: computation
+  }
+]
+
+-- Mark a context as infallible - operations within must succeed
+infallible: [computation ->
+  -- Execute the computation in an infallible context
+  -- In this context, failures are not allowed and must be handled
+  
+  -- Create an infallible context wrapper
+  { 
+    type: "context",
+    mode: "infallible",
+    computation: computation
+  }
+]
+
+-- Narrowing Operations
+-- ===================
+
+-- Narrow a value to ensure it satisfies a predicate
+-- If it doesn't, backtracking occurs to find a value that does
+narrow: [value, predicate ->
+  -- Apply the predicate to the value
+  result -> value predicate |>
+  
+  -- Create a narrowing result
+  {
+    type: "narrowing",
+    value: value,
+    satisfied: result
+  }
+]
+
+-- Parallel narrowing - try multiple paths concurrently
+par: [computations ->
+  -- In a full implementation, this would try all computations
+  -- and succeed if any of them succeed
+  
+  -- For now, wrap the computations in a parallel context
+  {
+    type: "parallel",
+    computations: computations
+  }
+]
+
+-- Choice operation - non-deterministically choose between options
+choose: [options ->
+  -- Create a choice point that can be explored during narrowing
+  -- This represents multiple potential execution paths
+  
+  {
+    type: "choice",
+    options: options
+  }
+]
+
+-- Commit to a specific branch, pruning other choices
+commit: [result ->
+  -- Once we commit to a choice, other alternatives are discarded
+  
+  {
+    type: "commit",
+    result: result
+  }
+]
+
+-- Logic Variables and Unification
+-- ==============================
+
+-- Create a new logic variable
+var: [name ->
+  -- Create an unbound logic variable
+  {
+    type: "var",
+    name: name,
+    bound: false,
+    value: nothing
+  }
+]
+
+-- Bind a value to a logic variable
+bind: [variable, value ->
+  -- Update the variable binding
+  variable.bound <- true
+  variable.value <- value
+  
+  variable
+]
+
+-- Unify two values
+unify: [a, b ->
+  -- Simple unification:
+  -- 1. If both are concrete and equal, succeed
+  -- 2. If one is a variable, bind it
+  -- 3. If both are variables, alias them
+  -- 4. Otherwise fail
+  
+  -- For now, just return a unification result
+  {
+    type: "unification",
+    a: a,
+    b: b,
+    success: a b ==  -- Simplified for now
+  }
+]
+
+-- Guaranteed Execution
+-- ===================
+
+-- Ensure a computation succeeds, exploring alternatives if needed
+eventually: [computation ->
+  -- This would implement the backtracking search to ensure
+  -- the computation succeeds on some path
+  
+  -- For now, just wrap the computation
+  {
+    type: "eventually",
+    computation: computation
+  }
+]
+
+-- Example Usage
+-- ============
+
+-- Define a simple fallible computation
+example: [->
+  -- Create a fallible context
+  [->
+    -- Define a logic variable
+    x -> "x" var |>
+    
+    -- Set up some choices for x
+    options -> [1, 2, 3, 4, 5]
+    x_value -> options choose |>
+    x x_value bind |>
+    
+    -- Narrow x to even numbers
+    is_even: [n -> n 2 % 0 ==]
+    x.value is_even narrow |>
+    
+    -- Return x
+    x.value
+  ] fallible |>
+]

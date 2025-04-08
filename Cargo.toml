@@ -1,0 +1,29 @@
+[package]
+name = "borf"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "borf_lib"
+path = "src/lib.rs"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "borf"
+path = "src/main.rs"
+
+[[bin]]
+name = "run_meta_tests"
+path = "src/bin/run_meta_tests.rs"
+
+[dependencies]
+wit-bindgen = "0.24.0"
+rustyline = "12.0.0"
+rustyline-derive = "0.9.0"
+dirs = "5.0.1"
+regex = "1.10.2"
+clap = { version = "4.4.7", features = ["derive"] }
+colored = "2.0.4"
+thiserror = "1.0.50"

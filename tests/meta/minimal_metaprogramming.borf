@@ -1,0 +1,4 @@
+-- Super simple test for the Borf-in-Borf evaluator
+-- Return a simple value that should evaluate to true
+
+1

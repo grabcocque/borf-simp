@@ -1,0 +1,23 @@
+--[[
+  More Borf Examples
+  
+  This file demonstrates additional Borf language features.
+]]--
+
+-- Nested quotations
+[x -> [y -> x y +]] -> make_adder
+
+-- Function that creates other functions
+make_adder 5 |> compute -> add_5
+
+-- Apply the generated function
+10 add_5 |> execute  -- Result: 15
+
+-- Multiple operations in sequence
+[
+  push: 10
+  push: 20
+  add:
+  push: 2
+  mul:
+] |> compute  -- Result: 60

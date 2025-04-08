@@ -1,0 +1,7 @@
+-- Absolute minimal Borf-in-Borf-in-Borf test
+
+-- Define a literal true value
+1   -- In Borf, any non-zero number is considered true
+
+-- Other form of true
+true

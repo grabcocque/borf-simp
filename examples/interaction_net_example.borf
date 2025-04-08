@@ -1,0 +1,279 @@
+-- Interaction Net Example in Borf
+-- Demonstrates how to use categorical structures and interaction nets with type metaprogramming
+
+import prim
+import catlab
+import syntax
+
+--[[ 
+  This example shows how to:
+  1. Define interaction net agents (cells) using type metaprogramming
+  2. Create a simple net with typed cells
+  3. Define rewrite rules with type safety
+  4. Apply rewriting to evaluate the net
+]]--
+
+-- Define custom agent types using type metaprogramming
+-- =================================================
+
+-- Define a type generator for interaction net agents
+make_agent_type : (String, Int) => Type
+[name, arity ->
+  -- Create a specialized cell type for this agent
+  base_cell_type -> make_cell_type()
+  
+  #{ 
+    $base_cell_type...,  -- Include all base cell properties
+    agent: #$name,       -- Fixed agent name as a type
+    arity: #$arity,      -- Fixed arity as a type
+    -- Add agent-specific properties
+    properties: Map      -- Store agent-specific data
+  }
+]
+
+-- Define types for our specific agents
+type AddAgent => $make_agent_type("Add", 3)      -- Principal + 2 auxiliary ports 
+type DupAgent => $make_agent_type("Dup", 3)      -- Principal + 2 auxiliary ports
+type EraseAgent => $make_agent_type("Erase", 1)  -- Principal port only
+
+-- Define a parametric type for constant agents with their value type
+make_const_agent_type : (Type) => Type
+[value_type ->
+  base_agent_type -> make_agent_type("Const", 1)
+  
+  #{
+    $base_agent_type...,
+    value: $value_type   -- Typed value
+  }
+]
+
+-- Define specific constant agent types
+type IntConstAgent => $make_const_agent_type(#Int)
+type StringConstAgent => $make_const_agent_type(#String)
+
+-- Create agent instances with proper typing
+-- =====================================
+
+-- Create factory functions that ensure type correctness
+create_add_agent : () => AddAgent
+[->
+  -- Create base cell and then add agent-specific properties
+  base_cell -> create_cell("Add", 3)
+  
+  -- Cast to the specific agent type with agent-specific properties
+  {
+    base_cell...,
+    properties: {}
+  }
+]
+
+-- Create a typed duplication agent
+create_dup_agent : () => DupAgent
+[->
+  base_cell -> create_cell("Dup", 3)
+  
+  {
+    base_cell...,
+    properties: {}
+  }
+]
+
+-- Create a typed eraser agent
+create_erase_agent : () => EraseAgent
+[->
+  base_cell -> create_cell("Erase", 1)
+  
+  {
+    base_cell...,
+    properties: {}
+  }
+]
+
+-- Create a typed constant agent with value
+create_int_const_agent : (Int) => IntConstAgent
+[value ->
+  base_cell -> create_cell("Const", 1)
+  
+  {
+    base_cell...,
+    properties: {},
+    value: value
+  }
+]
+
+-- Define typed rule patterns using type metaprogramming
+-- =============================================
+
+-- Create a type for rule patterns with fixed agent types
+make_rule_pattern : (Type, Type) => Type
+[agent1_type, agent2_type ->
+  #{
+    agent1: $agent1_type,
+    agent2: $agent2_type,
+    connection: Wire
+  }
+]
+
+-- Define specific rule patterns
+type AddAddPattern => $make_rule_pattern(#AddAgent, #AddAgent)
+type AddConstPattern => $make_rule_pattern(#AddAgent, #IntConstAgent)
+
+-- Create the standard interaction rules with type safety
+-- =================================================
+create_interaction_rules : () => RewriteSystem
+[->
+  -- Empty rule set
+  rules -> []
+  
+  -- Add + Add rule (typed)
+  -- When two Add agents connect on their principal ports
+  lhs -> empty_net()
+  add1 -> lhs |> add_cell(create_add_agent())
+  add2 -> lhs |> add_cell(create_add_agent())
+  -- Connect their principal ports together
+  lhs |> connect(add1, 0, add2, 0)
+  
+  -- The result after rewriting: create new connections
+  rhs -> empty_net() 
+  -- Create new structure with direct connections from aux ports to aux ports
+  new_add -> rhs |> add_cell(create_add_agent())
+  -- Add free ports for the interface
+  -- Connect auxiliary ports appropriately
+  
+  -- Create the rule with an optional type constraint
+  -- The constraint is a quoted code block that checks agent types
+  constraint -> `[pattern ->
+    pattern.agent1 is AddAgent && pattern.agent2 is AddAgent
+  ]
+  
+  add_add_rule -> create_rule("add_add", lhs, rhs, constraint)
+  rules -> rules |> append(add_add_rule)
+  
+  -- Add + Const rule (typed)
+  -- When Add connects to a constant
+  lhs -> empty_net()
+  add1 -> lhs |> add_cell(create_add_agent())
+  const1 -> lhs |> add_cell(create_int_const_agent(5))  -- Example with value 5
+  lhs |> connect(add1, 0, const1, 0)
+  
+  -- The result is a new constant with computed value
+  rhs -> empty_net()
+  -- In a real implementation, this would extract values and compute
+  new_const -> rhs |> add_cell(create_int_const_agent(5))
+  
+  -- Create the rule with a type constraint
+  constraint -> `[pattern ->
+    pattern.agent1 is AddAgent && pattern.agent2 is IntConstAgent
+  ]
+  
+  add_const_rule -> create_rule("add_const", lhs, rhs, constraint)
+  rules -> rules |> append(add_const_rule)
+  
+  -- Create the final rewrite system
+  create_rewrite_system(rules)
+]
+
+-- Build a typed computation net
+-- ==========================
+create_computation_net : () => Net
+[->
+  net -> empty_net()
+  
+  -- Create typed constants
+  const_5 -> net |> add_cell(create_int_const_agent(5))
+  const_3 -> net |> add_cell(create_int_const_agent(3))
+  
+  -- Create a typed add cell
+  add1 -> net |> add_cell(create_add_agent())
+  
+  -- Connect constants to add's auxiliary ports
+  net |> connect(const_5, 0, add1, 1)
+  net |> connect(const_3, 0, add1, 2)
+  
+  -- The result should be 8
+  net
+]
+
+-- Typed pattern matching on nets
+-- ===========================
+
+-- Define a type-aware pattern matcher
+match_agent_type : (Cell, Type) => Bool
+[cell, agent_type ->
+  -- Use type quotation to match against specific agent types
+  case agent_type of
+    #AddAgent -> cell.agent == "Add"
+    #DupAgent -> cell.agent == "Dup"
+    #EraseAgent -> cell.agent == "Erase"
+    #IntConstAgent -> cell.agent == "Const" && cell |> has_prop("value")
+    _ -> false
+]
+
+-- Main function to demonstrate typed net rewriting
+-- ============================================
+main : () => ()
+[->
+  -- Create the interaction net for 5 + 3
+  net -> create_computation_net()
+  
+  -- Create the rewrite system with typed rules
+  rules -> create_interaction_rules()
+  
+  -- Print initial net
+  "Initial typed network:" |> print
+  net |> net_to_string |> print
+  
+  -- Normalize (apply rules until no more matches)
+  result -> normalize(net, rules)
+  
+  -- Print result
+  "Result after normalization:" |> print
+  result |> net_to_string |> print
+  
+  -- Extract the final value with type checking
+  value -> result |> extract_result
+  "Computed result: " + value |> print
+  
+  -- Demonstrate type-based pattern matching
+  "Demonstrating type-based pattern matching:" |> print
+  -- Find cells of a specific type
+  add_cells -> result.cells |> filter [cell ->
+    cell |> match_agent_type(#AddAgent)
+  ]
+  "Found " + (add_cells |> length) + " add cells" |> print
+  
+  const_cells -> result.cells |> filter [cell ->
+    cell |> match_agent_type(#IntConstAgent)
+  ]
+  "Found " + (const_cells |> length) + " integer constant cells" |> print
+]
+
+-- Helper to extract the result from the final net with type safety
+extract_result : (Net) => Int
+[net ->
+  -- Find constant cells with type checking
+  const_cells -> net.cells |> filter [cell -> 
+    cell |> match_agent_type(#IntConstAgent)
+  ]
+  
+  -- Type-safe way to extract the value
+  if const_cells |> length > 0 then
+    const_cells[0].value  -- Directly access the typed value
+  else
+    0  -- Default value if no constants found
+]
+
+-- String representation of a net with type information
+net_to_string : (Net) => String
+[net ->
+  -- Count cells by type
+  add_count -> net.cells |> filter [cell -> cell |> match_agent_type(#AddAgent)] |> length
+  dup_count -> net.cells |> filter [cell -> cell |> match_agent_type(#DupAgent)] |> length
+  const_count -> net.cells |> filter [cell -> cell |> match_agent_type(#IntConstAgent)] |> length
+  
+  "Net with " + (net.cells |> length) + " cells (" +
+  add_count + " Add, " +
+  dup_count + " Dup, " +
+  const_count + " Const) and " + 
+  (net.wires |> length) + " wires"
+]

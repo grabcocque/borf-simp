@@ -1,0 +1,328 @@
+-- Metacircular Evaluator Self-Evaluation Tests
+-- This file tests whether the metacircular evaluators can successfully evaluate themselves
+
+--[[ 
+  These tests verify that both metacircular evaluator implementations
+  can properly evaluate themselves and correctly handle key language features.
+  
+  Tests are organized in categories:
+  1. Basic functionality tests
+  2. Self-evaluation tests
+  3. Meta-programming tests
+  4. Edge case tests
+]]--
+
+-- Test Harness
+-- =================
+
+-- Function to run a test and report results
+run_test [name <: String, test_fn <: () => Bool -> 
+  result : test_fn()
+  
+  "{}: {}".format(
+    name, 
+    (result) when true otherwise nothing then "✓ PASSED" otherwise "✗ FAILED"
+  ) |> println
+  
+  result
+] <: Bool
+
+-- Function to run all tests and summarize results
+run_all_tests [tests <: List[{name: String, fn: () => Bool}] -> 
+  total : tests |> length
+  passed : 0
+  
+  tests |> [test ->
+    result : run_test(test.name, test.fn)
+    passed : (result) when true otherwise nothing then passed + 1 otherwise passed
+  ] |> for_each
+  
+  println("\nSummary: {}/{} tests passed".format(passed, total))
+  
+  passed veq total
+] <: Bool
+
+-- Basic Functionality Tests
+-- =================
+
+-- Test basic arithmetic operations
+test_basic_arithmetic [->
+  -- Create an environment with the metacircular evaluator
+  eval_env : create_test_env()
+  
+  -- Test addition
+  add_result : evaluate("2 3 add", eval_env)
+  add_ok : add_result veq 5
+  
+  -- Test subtraction
+  sub_result : evaluate("10 4 sub", eval_env)
+  sub_ok : sub_result veq 6
+  
+  -- Test multiplication
+  mul_result : evaluate("3 7 mul", eval_env)
+  mul_ok : mul_result veq 21
+  
+  -- Test division
+  div_result : evaluate("20 5 div", eval_env)
+  div_ok : div_result veq 4
+  
+  add_ok and sub_ok and mul_ok and div_ok
+] : Bool
+
+-- Test variable assignment and retrieval
+test_variables [->
+  eval_env : create_test_env()
+  
+  -- Assign a value to a variable
+  assign_result : evaluate("42 : answer", eval_env)
+  assign_ok : assign_result veq 42
+  
+  -- Retrieve the variable
+  retrieve_result : evaluate("answer", eval_env)
+  retrieve_ok : retrieve_result veq 42
+  
+  assign_ok and retrieve_ok
+] : Bool
+
+-- Test function definition and application
+test_functions [->
+  eval_env : create_test_env()
+  
+  -- Define a simple function
+  func_def : "[x, y -> x y add] : add_numbers"
+  def_result : evaluate(func_def, eval_env)
+  def_ok : def_result is_quotation
+  
+  -- Apply the function
+  app_result : evaluate("3 4 add_numbers", eval_env)
+  app_ok : app_result veq 7
+  
+  def_ok and app_ok
+] : Bool
+
+-- Self-Evaluation Tests
+-- =================
+
+-- Test that the simple metacircular evaluator can evaluate itself
+test_simple_self_eval [->
+  -- Load the simple metacircular evaluator
+  meta_eval_source : load_file("src/prelude/meta/metacircular_evaluator.borf")
+  
+  -- Create a fresh environment for evaluation
+  eval_env : create_test_env()
+  
+  -- Evaluate the evaluator itself (this is a simplified test)
+  -- We just check if it loads without errors
+  error_caught : false
+  
+  try {
+    evaluate(meta_eval_source, eval_env)
+  } catch e {
+    error_caught : true
+  }
+  
+  not error_caught
+] : Bool
+
+-- Test that the complex metacircular evaluator can evaluate itself
+test_complex_self_eval [->
+  -- Load the complex metacircular evaluator
+  borf_in_borf_source : load_file("src/prelude/meta/borf_in_borf.borf")
+  
+  -- Create a fresh environment for evaluation
+  eval_env : create_test_env()
+  
+  -- Evaluate the evaluator itself (this is a simplified test)
+  -- We just check if it loads without errors
+  error_caught : false
+  
+  try {
+    evaluate(borf_in_borf_source, eval_env)
+  } catch e {
+    error_caught : true
+  }
+  
+  not error_caught
+] : Bool
+
+-- Meta-Programming Tests
+-- =================
+
+-- Test basic quoting and evaluation
+test_quote_eval [->
+  eval_env : create_test_env()
+  
+  -- Test quoting a value
+  quote_result : evaluate("'42", eval_env)
+  quote_ok : quote_result is_quoted and (quote_result |> unquote) veq 42
+  
+  -- Test evaluating a quoted expression
+  eval_result : evaluate("'(2 3 add) |> eval", eval_env)
+  eval_ok : eval_result veq 5
+  
+  quote_ok and eval_ok
+] : Bool
+
+-- Test quasiquotation
+test_quasiquote [->
+  eval_env : create_test_env()
+  
+  -- Set up a variable
+  evaluate("10 : x", eval_env)
+  
+  -- Test quasiquoting with unquote
+  quasi_result : evaluate("`(2 $x add)", eval_env)
+  quasi_ok : quasi_result is_quoted
+  
+  -- Evaluate the result
+  eval_result : evaluate("quasi_result |> eval", eval_env)
+  eval_ok : eval_result veq 12
+  
+  quasi_ok and eval_ok
+] : Bool
+
+-- Test type quotation
+test_type_quote [->
+  eval_env : create_test_env()
+  
+  -- Quote a type
+  type_quote_result : evaluate("#Int", eval_env)
+  type_quote_ok : type_quote_result is_type_quote
+  
+  -- Use it in a type definition
+  type_def_result : evaluate("type MyInt => $type_quote_result", eval_env)
+  type_def_ok : not (type_def_result is_error)
+  
+  type_quote_ok and type_def_ok
+] : Bool
+
+-- Edge Case Tests
+-- =================
+
+-- Test error handling
+test_error_handling [->
+  eval_env : create_test_env()
+  
+  -- Undefined variable
+  undefined_error : false
+  try {
+    evaluate("undefined_variable", eval_env)
+  } catch e {
+    undefined_error : true
+  }
+  
+  -- Division by zero
+  div_zero_error : false
+  try {
+    evaluate("5 0 div", eval_env)
+  } catch e {
+    div_zero_error : true
+  }
+  
+  -- Type error
+  type_error : false
+  try {
+    evaluate("\"string\" 42 add", eval_env)
+  } catch e {
+    type_error : true
+  }
+  
+  undefined_error and div_zero_error and type_error
+] : Bool
+
+-- Test recursion
+test_recursion [->
+  eval_env : create_test_env()
+  
+  -- Define a recursive factorial function
+  fact_def : "
+    [n -> 
+      (n <= 1) when true otherwise nothing then 1
+      otherwise n * fact(n - 1)
+    ] : fact
+  "
+  evaluate(fact_def, eval_env)
+  
+  -- Compute factorial of 5
+  fact_result : evaluate("5 fact", eval_env)
+  fact_ok : fact_result veq 120
+  
+  fact_ok
+] : Bool
+
+-- Helper Functions
+-- =================
+
+-- Create a fresh environment for testing
+create_test_env [->
+  env : new_env()
+  init_test_env(env)
+  env
+] <: Env
+
+-- Initialize the test environment with necessary bindings
+init_test_env [env <: Env ->
+  -- Add basic arithmetic operations
+  env_set(env, "add", [a, b -> a + b])
+  env_set(env, "sub", [a, b -> a - b])
+  env_set(env, "mul", [a, b -> a * b])
+  env_set(env, "div", [a, b -> a / b])
+  
+  -- Add evaluation functions
+  env_set(env, "eval", [expr -> eval(expr, env)])
+  env_set(env, "unquote", [quoted -> unquote(quoted)])
+  
+  -- Add type predicates
+  env_set(env, "is_quoted", [v -> v is_quoted])
+  env_set(env, "is_type_quote", [v -> v is_type_quote])
+  env_set(env, "is_quotation", [v -> v is_quotation])
+  env_set(env, "is_error", [v -> v is_error])
+  
+  env
+] <: Env
+
+-- Load a file as a string
+load_file [path <: String ->
+  read_file(path)
+] <: String
+
+-- Evaluate a string as Borf code
+evaluate [code <: String, env <: Env ->
+  parsed : parse(code)
+  eval(parsed, env)
+] <: Any
+
+-- Run all tests
+main [->
+  println("Running Metacircular Evaluator Self-Evaluation Tests")
+  println("===================================================")
+  
+  tests : [
+    -- Basic functionality tests
+    { name: "Basic Arithmetic", fn: test_basic_arithmetic },
+    { name: "Variables", fn: test_variables },
+    { name: "Functions", fn: test_functions },
+    
+    -- Self-evaluation tests
+    { name: "Simple Metacircular Self-Evaluation", fn: test_simple_self_eval },
+    { name: "Complex Metacircular Self-Evaluation", fn: test_complex_self_eval },
+    
+    -- Meta-programming tests
+    { name: "Quote and Eval", fn: test_quote_eval },
+    { name: "Quasiquotation", fn: test_quasiquote },
+    { name: "Type Quotation", fn: test_type_quote },
+    
+    -- Edge case tests
+    { name: "Error Handling", fn: test_error_handling },
+    { name: "Recursion", fn: test_recursion }
+  ]
+  
+  all_passed : run_all_tests(tests)
+  
+  (all_passed) when true otherwise nothing then
+    println("All tests passed! The metacircular evaluators can successfully evaluate themselves.")
+  otherwise
+    println("Some tests failed. The metacircular evaluators may not be able to fully evaluate themselves.")
+  
+  all_passed
+] <: Bool

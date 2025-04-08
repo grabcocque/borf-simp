@@ -1,0 +1,33 @@
+-- Explicit Error Handling Test
+-- This tests the explicit error handling mechanisms of Borf
+-- These are compatible with interaction nets since they avoid stack unwinding
+
+-- Create a successful result
+42 ok -> success
+
+-- Create an error result
+"Something went wrong" error -> failure
+
+-- Test is_ok and is_error predicates
+success is_ok -> success_ok      -- Should be true (1)
+success is_error -> success_err  -- Should be false (0)
+failure is_ok -> failure_ok      -- Should be false (0)
+failure is_error -> failure_err  -- Should be true (1)
+
+-- Verify the values
+success_ok 1 == -> test1
+success_err 0 == -> test2
+failure_ok 0 == -> test3
+failure_err 1 == -> test4
+
+-- Extract values from results
+-- In a real implementation, we would handle these properly
+-- For now, we just check that our predicates work
+
+-- Test handler function
+-- [computation] [handler] handle
+-- For now, we'll just test that the operations exist
+
+test1 test2 test3 test4 and and and
+
+-- The final result should be 1 (true) if all tests pass

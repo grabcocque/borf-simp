@@ -1,0 +1,149 @@
+-- Sequence abstraction for the Borf language
+-- This provides the core sequence operations that allow for loops and
+-- other control flow to be implemented through metaprogramming
+
+-- Sequence protocol functions
+-- These are the minimal operations required to implement a sequence
+
+-- Get the length of a sequence
+length: [seq -> 
+  -- Dispatch based on sequence type
+  match seq {
+    | [] -> 0
+    | "" -> 0
+    | list:List -> list list_length |>
+    | str:String -> str string_length |>
+    | range:Range -> range.end range.start -
+    | _ -> "Not a sequence type" error |>
+  }
+]
+
+-- Get an item at an index in a sequence
+get: [seq, index -> 
+  -- Dispatch based on sequence type
+  match seq {
+    | list:List -> list index list_get |>
+    | str:String -> str index string_get |>
+    | range:Range -> range.start index +
+    | _ -> "Not a sequence type" error |>
+  }
+]
+
+-- Create an iterator for a sequence
+iterator: [seq -> 
+  -- Dispatch based on sequence type
+  match seq {
+    | list:List -> list list_iterator |>
+    | str:String -> str string_iterator |>
+    | range:Range -> range range_iterator |>
+    | _ -> "Not a sequence type" error |>
+  }
+]
+
+-- Range type for numeric sequences
+-- This allows for efficient representation of numeric ranges without
+-- allocating a full list
+range: [start, end -> 
+  { start: start, end: end }
+]
+
+-- For loop implementation
+-- This is the core iteration primitive that can be used to build other control flow
+for: [seq, fn -> 
+  iter -> seq iterator |>
+  result -> []
+  
+  -- Iterate until the end of the sequence
+  iter.next() match {
+    | Some(value) -> 
+        -- Apply the function to the value
+        item_result -> value fn |>
+        -- Add to results
+        result <- result [item_result] +
+        -- Continue iteration
+        iter fn for |>
+    | None -> result
+  }
+]
+
+-- Map operation using for
+map: [seq, fn -> 
+  seq fn for |>
+]
+
+-- Filter operation
+filter: [seq, predicate -> 
+  -- Use for loop with a conditional to build a filtered list
+  seq [item -> 
+    item predicate |> if then
+      item Some |>
+    else
+      None
+  ] for |> [results -> 
+    -- Filter out None values
+    results [x -> x Some is] filter |> [x -> x unwrap |>] map |>
+  ]
+]
+
+-- Fold operation (reduce)
+fold: [seq, initial, fn -> 
+  -- Implement fold using an iterator
+  iter -> seq iterator |>
+  
+  -- Inner recursive fold function
+  fold_iter: [iter, acc -> 
+    iter.next() match {
+      | Some(value) -> iter acc value fn |> fold_iter |>
+      | None -> acc
+    }
+  ]
+  
+  iter initial fold_iter |>
+]
+
+-- Specialized implementations for different sequence types
+-- List operations
+list_length: [list -> list native_list_length |>]
+list_get: [list, index -> list index native_list_get |>]
+list_iterator: [list -> { 
+  index: 0, 
+  list: list, 
+  next: [self -> 
+    self.index self.list list_length |> < if then
+      value -> self.list self.index list_get |>
+      self.index <- self.index 1 +
+      value Some |>
+    else
+      None
+  ]
+}]
+
+-- String operations
+string_length: [str -> str native_string_length |>]
+string_get: [str, index -> str index native_string_get |>]
+string_iterator: [str -> { 
+  index: 0, 
+  str: str, 
+  next: [self -> 
+    self.index self.str string_length |> < if then
+      value -> self.str self.index string_get |>
+      self.index <- self.index 1 +
+      value Some |>
+    else
+      None
+  ]
+}]
+
+-- Range operations
+range_iterator: [rng -> { 
+  current: rng.start, 
+  end: rng.end, 
+  next: [self -> 
+    self.current self.end < if then
+      value -> self.current
+      self.current <- self.current 1 +
+      value Some |>
+    else
+      None
+  ]
+}]

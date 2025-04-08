@@ -1,0 +1,11 @@
+-- Simple Borf-in-Borf-in-Borf test
+-- This tests basic arithmetic operations through multiple levels of evaluation
+
+-- Define a simple addition function
+[x, y -> x + y] : add_numbers
+
+-- Test basic arithmetic
+5 10 add_numbers  -- Should return 15
+
+-- Return true (our test result)
+true

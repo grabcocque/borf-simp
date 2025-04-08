@@ -1,0 +1,14 @@
+-- Simple test without modules
+-- Just using basic operations
+
+-- Define a function to add two numbers
+add_test [a, b -> a + b] : Int
+
+-- Test the function with 5 and 7
+result : add_test(5, 7)
+
+-- Print the result
+println("Result: " + result |> to_string)
+
+-- Check if the result is correct
+result == 12

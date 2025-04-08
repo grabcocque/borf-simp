@@ -1,0 +1,9 @@
+-- Simple test for Borf metacircular evaluator
+
+-- Define a few numbers and perform basic arithmetic
+2
+3
+add
+
+-- Print the result
+print

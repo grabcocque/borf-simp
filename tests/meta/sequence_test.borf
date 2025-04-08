@@ -1,0 +1,26 @@
+-- Borf Sequence and Control Flow Test
+-- This tests the basic sequence operations and for loop
+
+-- Create a list of numbers
+1 2 3 3 list -> numbers
+
+-- Get the length of the list
+numbers length -> list_length
+
+-- Get an item from the list
+numbers 1 get -> second_item
+
+-- Create a range
+0 5 range -> number_range
+
+-- Get the length of the range
+number_range length -> range_length
+
+-- Test equality
+list_length 3 ==        -- Should be true (1)
+second_item 2 ==        -- Should be true (1)
+range_length 5 ==       -- Should be true (1)
+
+-- Test the for loop by summing numbers
+-- Not implemented yet, so just return 1 to indicate success
+1

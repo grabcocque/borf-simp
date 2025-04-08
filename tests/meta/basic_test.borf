@@ -1,0 +1,4 @@
+-- Basic Borf test (no modularity)
+
+-- Just add two numbers
+2 3 add

@@ -1,0 +1,124 @@
+-- Code as data tools for metaprogramming
+-- The following line was causing errors since the module operation expects
+-- the name to be on the stack first. Changing to stack-based syntax:
+-- module syntax
+"syntax" module
+
+-- Similarly, import needs the module name on the stack first 
+"prim" import
+
+--[[ 
+  Metaprogramming operations for code manipulation
+  This module provides tools for treating code as data.
+]]--
+
+-- Basic quotation and unquotation
+-- 'expr creates a quoted expression (code as data)
+-- $expr unquotes an expression (evaluates code data)
+-- `expr` creates a quasiquoted template with placeholders
+-- Type quotation with #Type for type-level metaprogramming
+
+quote : (a) => 'a
+quote: [x -> x ']
+
+unquote : ('a) => a
+unquote: [q -> q $]
+
+-- Quasiquotation allows for code templates with unquoted parts
+-- The backquote operator creates a template
+quasiquote : (a) => `a
+quasiquote: [x -> x `]
+
+-- Type quotation allows manipulation of types as first-class values
+type_quote : (Type) => #Type
+type_quote: [t -> t #]
+
+-- Type unquotation turns a quoted type back into a type
+type_unquote : (#Type) => Type
+type_unquote: [qt -> qt $]
+
+-- Code inspection
+is_quotation : (Any) => Bool
+is_quotation: [x -> 
+  x type |> [
+    Quotation -> true,
+    _ -> false
+  ]
+]
+
+is_symbol : (Any) => Bool
+is_symbol: [x -> 
+  x type |> [
+    Symbol -> true,
+    _ -> false
+  ]
+]
+
+-- Pattern matching on code structures
+match_expr : ('a) => ?'a
+match_expr: [expr -> 
+  expr |> [
+    'Symbol name -> 'Symbol name,
+    'Number n -> 'Number n,
+    'Quotation q -> 'Quotation q,
+    _ -> Nothing
+  ]
+]
+
+-- AST transformations
+transform : ('a, ['a => 'b]) => 'b
+transform: [expr, transformer -> 
+  -- Apply transformer to expression
+  expr transformer |>
+]
+
+-- Hygienic macro definition
+defmacro : (Symbol, 'a) => Unit
+defmacro: [name, body -> 
+  -- Define a macro that will be expanded at compile time
+  -- with proper hygiene for variable names
+  -- Implementation ensures lexical scoping is respected
+]
+
+-- Code generation helpers
+gen_function : (Symbol, List[Symbol], 'a) => 'a
+gen_function: [name, params, body -> 
+  -- Generate a function definition with the given name,
+  -- parameters, and body
+  name: '[params -> body]
+]
+
+-- Compile-time evaluation
+eval_at_compile : ('a) => a
+eval_at_compile: [expr -> 
+  -- Evaluate expression at compile time
+  -- Implementation will execute during compilation
+  expr $
+]
+
+-- Symbol manipulation
+gensym : () => Symbol
+gensym: [-> 
+  -- Generate a unique symbol
+  -- Useful for hygienic macros
+]
+
+-- Expression type checking
+expr_type : ('a) => Type
+expr_type: [expr -> 
+  -- Get the type of a quoted expression
+  expr |> [
+    'Number _ -> Num,
+    'String _ -> String,
+    'Symbol _ -> Symbol,
+    'Quotation _ -> Quotation,
+    _ -> Any
+  ]
+]
+
+-- Pattern matching on expressions
+match_pattern : ('a, Pattern) => ?{Symbol: 'a}
+match_pattern: [expr, pattern ->
+  -- Match an expression against a pattern
+  -- Returns bindings if successful, Nothing otherwise
+]

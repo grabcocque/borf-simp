@@ -1,0 +1,80 @@
+-- Core primitives module
+-- The following line was causing errors since the module operation expects
+-- the name to be on the stack first. Changing to stack-based syntax:
+-- module prim
+"prim" module
+
+--[[ 
+  Basic types and operations for Borf
+  This module defines the foundation of the standard library.
+]]--
+
+-- Type definitions
+-- ! indicates a linear type (must be used exactly once)
+-- ? indicates an optional type (Type or Nothing)
+type !File => { path: String, handle: Int }
+
+-- Basic arithmetic operations
+-- Borf uses a simplified notation for function types
+-- (inputs) => output
+add : (Num, Num) => Num
+add: [x, y -> x y +]
+
+sub : (Num, Num) => Num
+sub: [x, y -> x y -]
+
+mul : (Num, Num) => Num
+mul: [x, y -> x y *]
+
+div : (Num, Num) => ?Num
+div: [x, y -> 
+  y 0 == |> [-> Nothing] 
+        |> [-> x y /]
+]
+
+-- String operations
+concat : (String, String) => String
+concat: [x, y -> x y ++]
+
+-- File operations (using linear types for resource management)
+open_file : (String) => ?!File
+open_file: [path -> 
+  -- Implementation will check if file exists
+  -- and return file or Nothing if not found
+]
+
+close_file : (!File) => Unit
+close_file: [file -> 
+  -- Implementation will ensure the file is closed
+  -- and can no longer be used (enforced by linear type)
+]
+
+-- Collection operations (category theory structure)
+map : ([a => b], List[a]) => List[b]
+map: [f, xs -> 
+  -- Apply f to each element of xs
+  xs |> [x -> x f |> ] |> collect
+]
+
+filter : ([a => Bool], List[a]) => List[a]
+filter: [pred, xs ->
+  -- Keep only elements that satisfy the predicate
+  xs |> [x -> x pred |> |> [true -> x, false -> drop]] |> compact
+]
+
+fold : ([b, a => b], b, List[a]) => b
+fold: [f, init, xs ->
+  -- Reduce a list to a single value
+  xs |> [acc, x -> acc x f |>] |> inject init
+]
+
+-- Resource handling with linear types
+with_file : (String, [!File => a]) => ?a
+with_file: [path, f -> 
+  path open_file |> [
+    file -> 
+      -- Linear type ensures file is used exactly once
+      file f |>,
+    Nothing -> Nothing
+  ]
+]
