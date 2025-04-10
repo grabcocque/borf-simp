@@ -1,29 +1,18 @@
--- Meta module for Borf
--- Provides metacircular evaluation capabilities
+-- Meta module for Borf (Placeholder)
+-- Will provide metacircular evaluation capabilities once implemented
 
 --[[ 
-  This module exposes the metacircular evaluation capabilities of Borf.
-  It allows Borf code to evaluate Borf code, enabling metaprogramming,
+  This module will expose the metacircular evaluation capabilities of Borf.
+  It will allow Borf code to evaluate Borf code, enabling metaprogramming,
   reflection, and self-modification.
   
-  The implementation is provided by:
-  - borf_in_borf.borf: A comprehensive Borf implementation in Borf itself
+  The implementation is deferred until the core language and interpreter are finalized.
 ]]--
 
--- Note: Module declarations are commented out to avoid the "Unknown operation: module" error
--- module meta
--- import prim
--- import syntax
+module meta
 
--- These files provide metacircular evaluation - the ability for
--- Borf to interpret itself. This enables powerful metaprogramming,
--- reflection, and language extension capabilities.
+-- Placeholder for metaprogramming capabilities
+-- To be implemented after core language design is stable
 
--- Core functions provided:
--- parse: String -> Expr    -- Parse a string into an AST
--- eval: Expr, Env -> Value -- Evaluate an AST in an environment
--- new_env: () -> Env       -- Create a new environment
--- borf_repl: () -> ()      -- Run the metacircular REPL
-
--- Both implementations are loaded directly by the interpreter
--- when metacircular evaluation is requested.
+-- Simple identity function to avoid parse errors
+identity [x -> x]

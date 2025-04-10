@@ -662,11 +662,26 @@ apply_function [func: BorfValue, args: List[BorfValue], env: BorfEnv ->
         error("Wrong number of arguments: expected " + to_string(c.params |> length) + 
               ", got " + to_string(args |> length))
       
-      -- Bind each parameter
+      -- Bind each parameter with type checking
       c.params |> zip(args) |> [pair ->
         param -> pair.0
         arg -> pair.1
-        define(call_env, param.name, arg)
+        
+        -- Type checking - if parameter has a type annotation, verify argument type
+        if param.type_annotation |> is some then {
+          param_type -> param.type_annotation |> unwrap
+          arg_type -> type_of(arg)
+          
+          -- Verify type compatibility
+          types_compatible(arg_type, param_type) |> if then
+            define(call_env, param.name, arg)
+          else
+            error("Type mismatch for parameter '" + param.name + "': expected " + 
+                  type_to_string(param_type) + ", got " + type_to_string(arg_type))
+        } else {
+          -- No type annotation, just bind
+          define(call_env, param.name, arg)
+        }
       ] |> for_each
       
       -- Evaluate body expressions
@@ -690,7 +705,22 @@ apply_function [func: BorfValue, args: List[BorfValue], env: BorfEnv ->
       tc.params |> zip(args) |> [pair ->
         param -> pair.0
         arg -> pair.1
-        define(call_env, param.name, arg)
+        
+        -- Type checking - verify argument type against parameter type
+        if param.type_annotation |> is some then {
+          param_type -> param.type_annotation |> unwrap
+          arg_type -> type_of(arg)
+          
+          -- Verify type compatibility
+          types_compatible(arg_type, param_type) |> if then
+            define(call_env, param.name, arg)
+          else
+            error("Type mismatch for parameter '" + param.name + "': expected " + 
+                  type_to_string(param_type) + ", got " + type_to_string(arg_type))
+        } else {
+          -- No type annotation, just bind
+          define(call_env, param.name, arg)
+        }
       ] |> for_each
       
       result -> { Nothing: () }
@@ -699,8 +729,16 @@ apply_function [func: BorfValue, args: List[BorfValue], env: BorfEnv ->
         result <- evaluate(expr, call_env)
       ] |> for_each
       
-      -- In a full implementation, verify result type matches return_type
-      result
+      -- Verify result type matches declared return type
+      result_type -> type_of(result)
+      
+      -- Verify type compatibility
+      types_compatible(result_type, tc.return_type) |> if then
+        result
+      else
+        error("Return type mismatch: function declared return type " + 
+              type_to_string(tc.return_type) + ", but returned value of type " + 
+              type_to_string(result_type))
     
     { PrimFunction: pf } -> 
       -- Call primitive function with arguments
