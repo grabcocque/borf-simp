@@ -402,17 +402,17 @@ Core stack manipulation primitives:
 ##### Syntactic Sugar via the STACKER Algorithm
 Named parameters and pipelines are implemented as syntactic sugar that gets rewritten to explicit stack operations via the STACKER translation algorithm.
 
-###### The STACKER Algorithm
+###### The Enhanced STACKER Algorithm
 
-The STACKER algorithm systematically translates human-friendly named parameter syntax into core stack operations:
+The STACKER algorithm systematically translates human-friendly named parameter syntax into optimized stack operations:
 
 1. **Named parameters in quotations:**
 ```
 // User writes this with named parameters
 [x y -> x y +]
 
-// Gets expanded internally to these stack operations
-[1 pick 1 pick + ]
+// Gets expanded internally to optimized stack operations
+[+ ]  // The parameters x and y are already on the stack in the right order
 ```
 
 2. **Pipeline operator:**
@@ -426,47 +426,87 @@ value function
 
 ###### How STACKER Works
 
-The STACKER algorithm follows these steps to translate named parameters:
+The STACKER algorithm follows these sophisticated steps to translate named parameters:
 
-1. **Parameter Mapping**: Maps parameters to their initial stack depths
-   - Last parameter (rightmost) is at depth 0 (top of stack)
-   - Second-to-last at depth 1, and so on
+1. **Parameter Mapping and Usage Analysis**
+   - Maps parameters to their initial stack depths
+     - Last parameter (rightmost) is at depth 0 (top of stack)
+     - Second-to-last at depth 1, and so on
+   - Analyzes parameter usage patterns throughout the entire body
+     - Counts how many times each parameter is used
+     - Tracks the last occurrence of each parameter
+     - Identifies single-use parameters that can be consumed directly
 
-2. **Dynamic Depth Tracking**: For each operation in the body:
-   - Tracks how the stack depth changes as operations are performed
+2. **Dynamic Depth Tracking**
+   - Tracks how stack depth changes as operations are performed
+   - Maintains adjusted depths as parameters are consumed
    - Updates the actual depth needed for each parameter reference
 
-3. **Parameter Translation**: When a parameter is referenced:
-   - Calculates its current depth: `actual_depth = initial_depth + current_stack_depth_increase`
-   - Generates `actual_depth pick` operation
-   - Increments stack depth (since `pick` adds an item)
+3. **Optimized Parameter Translation**
+   - For the last use of a parameter:
+     - If at depth 0: No operation needed (already on top)
+     - If at depth 1: Uses `swap` to bring to top
+     - If at depth 2: Uses `rot` for rotation
+     - If deeper: Uses `roll` with specific depth
+     - Marks parameter as consumed and adjusts depths of other parameters
+   - For intermediate parameter uses:
+     - Calculates current depth considering all consumed parameters
+     - Generates `actual_depth pick` operation to copy the value
+     - Increments stack depth (since `pick` adds an item)
 
-4. **Operation Tracking**: For each operation:
-   - Tracks how it affects the stack (inputs consumed, outputs produced)
+4. **Operation Tracking**
+   - Tracks how each operation affects the stack (inputs consumed, outputs produced)
    - Updates the running stack depth accordingly
+   - Considers the effect of parameter consumption on other parameters
 
-5. **Pipeline Handling**: Treats pipeline operators (`|>`) as no-ops
-   - They're purely structural syntax with no runtime overhead
+5. **Pipeline Handling**
+   - Treats pipeline operators (`|>`) as no-ops (purely structural syntax)
    - Simply appends the pipeline target to the generated code
 
-Example walkthrough for `[x y -> x y +]`:
-1. Map parameters: `y` at depth 0, `x` at depth 1
-2. For token `x`:
-   - `actual_depth = initial_depth(1) + current_increase(0) = 1`
-   - Generate `1 pick`, stack increase becomes 1
-3. For token `y`:
-   - `actual_depth = initial_depth(0) + current_increase(1) = 1`
-   - Generate `1 pick`, stack increase becomes 2
-4. For token `+`:
-   - Add `+` to output
-   - Update stack increase: `2 - 2 + 1 = 1` (consumes 2, produces 1)
-5. Result: `1 pick 1 pick +`
+6. **Peephole Optimization**
+   - Applies pattern matching to eliminate redundant operations
+   - Common optimizations include:
+     - `1 pick 1 pick +` → `+` (items already in position)
+     - `0 pick 1 pick +` → `swap +` (switch order then operate)
+     - `1 pick drop` → `nip` (use specialized Forth word)
+     - `0 pick op` → `op` (operate on top item directly)
 
-The algorithm correctly handles complex cases:
-- Parameter reuse (accessing a parameter multiple times)
-- Multi-stage pipelines
-- Nested quotations
-- Operations with varying stack effects
+Consider two examples to illustrate how optimization strategies work:
+
+**Example 1:** `[x y -> y x *]` (reversing parameters)
+
+1. Map parameters: `y` at depth 0, `x` at depth 1
+2. Analyze usage: Both parameters used once as their last use
+3. For token `y`:
+   - Last use at depth 0 → No operation needed (already on top)
+4. For token `x`:
+   - Last use at depth 1 → Generate `swap` to bring to top
+5. For token `*`:
+   - Add `*` to output
+6. Result: `swap *` (much more efficient than naive `0 pick 1 pick *`)
+
+**Example 2:** `[x y -> x x y + *]` (reusing a parameter)
+
+1. Map parameters: `y` at depth 0, `x` at depth 1
+2. Analyze usage: `y` used once (last use), `x` used twice (first use is not last)
+3. For first `x`:
+   - Not last use → Generate `1 pick` to copy value
+4. For second `x`:
+   - Last use at depth 1 → Generate `swap` to bring to top
+5. For `y`:
+   - Last use now at depth 1 (due to stack increase) → Generate `swap`
+6. For `+`:
+   - Add `+` to output
+7. For `*`:
+   - Add `*` to output
+8. Peephole optimization recognizes patterns and optimizes
+9. Result: `1 pick swap +  *` (highly optimized compared to naive implementation)
+
+The enhanced algorithm produces highly optimized code by:
+- Consuming parameters directly when possible instead of copying
+- Using specialized stack operations like `swap`, `rot`, and `roll` 
+- Eliminating redundant operations through pattern matching
+- Generating minimal, idiomatic stack code equivalent to expert-written code
 
 ###### Stack Effect Declarations for STACKER
 
@@ -546,7 +586,49 @@ This approach ensures:
 
 All operations on multiple values expect either a single list value or explicit parameters, rather than consuming "everything on the stack."
 
-#### 6.4.4 Debugging Support
+#### 6.4.4 Basic Stack Words vs. Operators and Combinators
+
+In Borf, there's an important distinction between different types of language constructs:
+
+##### Basic Stack Words
+The fundamental stack manipulation primitives are implemented as **core words**:
+- They are simple symbolic functions built into the language (`dup`, `swap`, `drop`, etc.)
+- They appear as basic symbols in the AST
+- They're evaluated at runtime by looking up in the environment
+- They follow standard stack-based postfix notation
+- They directly manipulate the stack without requiring special parsing
+
+Example usage:
+```
+1 2 dup  -- pushes 1, 2, 2 onto the stack
+3 4 swap -- pushes 3, 4 then swaps them to get 3, 4
+5 drop   -- pushes 5 then drops it, leaving empty stack
+```
+
+##### Operators and Combinators
+More complex operations are implemented as **grammar-level operators** or **combinators**:
+- They are part of the parser grammar and syntax, not just runtime functions
+- They can have special parsing rules and precedence
+- They typically work with quotations (code blocks) and have complex evaluation rules
+- They often use infix notation in the source code
+- They're implemented using a Pratt parser or other specialized parsing mechanism
+
+Examples of operators and combinators:
+```
+// Operators with complex evaluation rules
+value |> function       -- Pipeline operator
+x { | 0 => "zero" } match  -- Match operator with pattern block
+condition [A] [B] if    -- If operator with conditional branches
+
+// Higher-order combinators from Joy/Factor
+x [P] [Q] bi            -- Apply two quotations to same value
+[P] keep                -- Execute quotation but preserve input
+seq [Q] map             -- Apply quotation to each element
+```
+
+The distinction allows Borf to have both low-level stack manipulation primitives and high-level functional programming constructs, with each implemented in the most appropriate way for its purpose.
+
+#### 6.4.5 Debugging Support
 Borf provides tools to see how syntactic sugar gets expanded to stack operations:
 
 ```
@@ -592,16 +674,30 @@ Where:
 - `--` separates inputs from outputs
 - `outputs` is the list of items pushed onto the stack (from left to right, leftmost is pushed first)
 
-Examples:
+#### 7.1.1 Core Stack Manipulation Words
+
+Borf provides a comprehensive set of stack manipulation words with consistent naming:
+
 ```
 ( n -- n n )          // dup: duplicates the top item
 ( a b -- b a )        // swap: swaps the top two items
 ( a b c -- b c a )    // rot: rotates the third item to the top
 ( a -- )              // drop: removes the top item
 ( a b -- a b a )      // over: copies the second item to the top
-( a b -- b a b )      // tuck: copies the top item to the third position
-( i*1+n ... i+1 i -- i*1+n ... i+1 i i+n ) // pick: copies the nth item to the top
 ```
+
+#### 7.1.2 Advanced Stack Operators with Amazing Forth Names
+
+Borf also includes these delightfully named stack operators from Forth:
+
+```
+( a b n -- b )                     // nip: drops the second item
+( a b n -- b a b )                 // tuck: copies the top item before the second item
+( i*1+n ... i+1 i n -- i*1+n ... i+1 i i+n ) // pick: copies the nth item to the top
+( i*1+n ... i+1 i n -- i*n ... i+1 i ) // roll: moves the nth item to the top
+```
+
+These words have been elevated to first-class operators in Borf for their utility and memorable names.
 
 ### 7.2 Stack Effect Declarations
 
@@ -818,6 +914,7 @@ list(integer())    // Lists containing only integers
 
 Borf provides several basic types:
 
+- `string()` - UTF-8 coded as is the style of the time
 - `symbol()` - Symbolic values
 - `binary()` - Binary data
 - `integer()` - Integer numbers
@@ -1044,9 +1141,32 @@ All top-level bindings are exported from a module.
 - `or`: Logical OR ( a b -- c )
 - `not`: Logical NOT ( a -- b )
 
-### 10.2 Collection Operations
+### 10.2 Combinators and Higher-Order Functions
 
-#### 10.2.1 Lists
+#### 10.2.1 Advanced Stack Operators
+These operators provide sophisticated stack manipulation beyond the basic words:
+
+- `nip`: Drop the second item on the stack ( a b n -- b )
+- `tuck`: Copy top item before second item ( a b n -- b a b )
+- `pick`: Copy item n deep in stack ( ... a b c n -- ... a b c a ) for n=2
+- `roll`: Move item n deep to top ( ... a b c n -- ... b c a ) for n=2
+
+These operators were selected for their descriptive, memorable names and their utility in stack manipulation. They've been elevated to grammar-level operators in Borf for their importance and distinctiveness.
+
+#### 10.2.2 Combinators from Joy
+These elegant combinators offer powerful functional composition:
+
+- `dip`: Temporarily hide top value, execute quotation, restore value ( a b [Q] -- a Q_result b )
+- `bi`: Apply two different quotations to same value ( x [P] [Q] -- P(x) Q(x) )
+- `tri`: Apply three different quotations to same value ( x [P] [Q] [R] -- P(x) Q(x) R(x) )
+- `cleave`: Apply multiple quotations to same value ( x quotlist -- results... )
+- `keep`: Execute quotation but keep the original value ( x [Q] -- x Q(x) )
+- `bi*`: Apply different quotations to respective values ( x y [P] [Q] -- P(x) Q(y) )
+- `bi@`: Apply same quotation to two values ( x y [P] -- P(x) P(y) )
+- `dip2`: Like dip but for two values ( a b c [Q] -- a Q_result b c )
+
+#### 10.2.2 Collection Operations
+
 - `map`: Apply a Quotation to each element ( list quot -- result )
 - `filter`: Select elements satisfying a predicate ( list quot -- result )
 - `fold`: Reduce a list to a single value ( list init quot -- result )

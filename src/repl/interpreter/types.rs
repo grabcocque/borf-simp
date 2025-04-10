@@ -28,8 +28,10 @@ pub type Result<T> = std::result::Result<T, EvaluatorError>;
 pub enum Expr {
     Number(i32),
     String(String),
+    Boolean(bool),                        // Boolean literal (true/false)
+    Nil,                                  // Nil literal
     Symbol(String),
-    Quotation(Vec<Param>, Vec<Expr>), // Includes parameter list
+    Quotation(Vec<Param>, Vec<Expr>),     // Includes parameter list
     TypedQuotation(Vec<Param>, Vec<Expr>, Box<Type>), // Unified function with params, body, and return type
     Pipeline(Box<Expr>, Box<Expr>),
     Match(Box<Expr>, Vec<(Pattern, Expr)>),
@@ -44,6 +46,40 @@ pub enum Expr {
     TypeQuote(Box<Type>),                 // Quoted type #Type
     TypeUnquote(Box<Expr>),               // Unquoted type expression $T
     FunctionType(Vec<Type>, Box<Type>),   // Function type declaration
+    
+    // New expression types
+    Sequence(Vec<Expr>),                  // Sequence of expressions
+    Record(HashMap<String, Expr>),        // Record/map literal
+    Tuple(Vec<Expr>),                     // Tuple literal
+    If(Box<Expr>, Box<Expr>, Box<Expr>),  // Condition, true branch, false branch
+    StackEffect(crate::repl::interpreter::stack_effects::StackEffect), // Stack effect declaration
+    
+    // Loop constructs borrowed from Factor, Forth, and Joy
+    Times(Box<Expr>, Box<Expr>),          // Repeat n times: 5 [code] times
+    Loop(Box<Expr>),                      // Infinite loop: [code] loop
+    While(Box<Expr>, Box<Expr>),          // Conditional loop: [condition] [body] while
+    For(Box<Expr>, Box<Expr>, Box<Expr>), // Iteration: [start end] [body] for
+    
+    // Joy-inspired combinators
+    Dip(Box<Expr>),                       // a b [Q] dip -> a Q b (hide b, run Q, restore b)
+    Map(Box<Expr>, Box<Expr>),            // seq [Q] map -> seq' (apply Q to each element)
+    Filter(Box<Expr>, Box<Expr>),         // seq [P] filter -> seq' (keep only elements where P is true)
+    Fold(Box<Expr>, Box<Expr>, Box<Expr>), // seq init [F] fold -> result (reduce with binary operator)
+    Cleave(Box<Expr>, Vec<Expr>),         // x [P] [Q] [R] cleave -> P(x) Q(x) R(x) (apply multiple quotations to x)
+    Bi(Box<Expr>, Box<Expr>, Box<Expr>),  // x [P] [Q] bi -> P(x) Q(x) (apply two quotations to x)
+    Tri(Box<Expr>, Box<Expr>, Box<Expr>, Box<Expr>), // x [P] [Q] [R] tri -> P(x) Q(x) R(x) (apply three quotations to x)
+    
+    // Advanced stack manipulation operators (Forth-inspired)
+    Nip(Box<Expr>),                       // a b n nip -> b (drop the second item)
+    Tuck(Box<Expr>),                      // a b n tuck -> b a b (copy top item before second item)
+    Pick(Box<Expr>),                      // ... a b c 2 pick -> ... a b c a (copy item n deep in stack)
+    Roll(Box<Expr>),                      // ... a b c 2 roll -> ... b c a (move item n deep to top)
+
+    // Forth-inspired stack operators
+    Keep(Box<Expr>),                      // x [Q] keep -> x Q(x) (run Q but keep x)
+    Dip2(Box<Expr>),                      // a b c [Q] dip2 -> a Q b c (hide b & c, run Q, restore b & c)
+    BiStar(Box<Expr>, Box<Expr>, Box<Expr>), // x y [P] [Q] bi* -> P(x) Q(y) (apply different quotations to different values)
+    BiAt(Box<Expr>, Box<Expr>),           // x y [P] bi@ -> P(x) P(y) (apply same quotation to different values)
 }
 
 // Parameter for quotations

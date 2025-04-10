@@ -1,0 +1,125 @@
+// Borf PEG grammar
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "," }
+COMMENT = _{ "--" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI) | "--[[" ~ (!"]]--" ~ ANY)* ~ "]]--" }
+
+// Top-level constructs
+program = { SOI ~ (module_decl | import_decl | top_level_expr)* ~ EOI }
+module_decl = { string_literal ~ "module" }
+import_decl = { string_literal ~ "import" }
+top_level_expr = { assignment | expr }
+
+// Expression parsing adapted for Pratt parsing to handle left recursion
+expr = { atom ~ (infix_op ~ atom)* }
+
+// Atomic expressions (non-left-recursive)
+atom = {
+    quotation
+  | symbol 
+  | number 
+  | string_literal
+  | record_expr
+  | tuple_expr
+  | quoted_expr
+  | unquoted_expr
+  | quasiquoted_expr
+  | stack_effect
+  | "(" ~ expr ~ ")"
+}
+
+// Operators handled by the Pratt parser
+infix_op = {
+    // Core data flow operators
+    "|>"         // Pipeline operator
+  | "match"      // Match operator (for match expressions)
+  | "if"         // If operator (for if expressions)
+    
+    // Loop constructs
+  | "times"      // Repeat n times (from Forth)
+  | "loop"       // General loop (from Factor, for quotation-based loops)
+  | "while"      // Conditional loop (from Factor, with conditional and body quotations)
+  | "for"        // Iteration through a range or collection (Factor-style)
+    
+    // Advanced stack manipulation operators (Forth-inspired)
+  | "nip"        // Drop the second item on the stack (a b -- b)
+  | "tuck"       // Copy top item before second item (a b -- b a b)
+  | "pick"       // Copy item n deep in stack (... a b c 2 pick -- ... a b c a)
+  | "roll"       // Move item n deep to top (... a b c 2 roll -- ... b c a)
+    
+    // Joy-inspired combinators
+  | "dip"        // Temporarily hide top value, execute quotation, restore value
+  | "map"        // Apply quotation to each element of a sequence
+  | "filter"     // Keep only elements satisfying predicate
+  | "fold"       // Reduce sequence with binary operator
+  | "cleave"     // Apply multiple quotations to same value
+  | "bi"         // Apply two different quotations to same value (Joy)
+  | "tri"        // Apply three different quotations to same value (Joy)
+    
+    // Forth-inspired stack operators
+  | "keep"       // Execute quotation but keep the original value (Forth: KEEP)
+  | "dip2"       // Like dip but for two values (Forth: 2DIP)
+  | "bi*"        // Apply two quotations to respective values (Joy/Factor)
+  | "bi@"        // Apply same quotation to two values (Joy/Factor)
+}
+
+// Literals
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+string_literal = @{ "\"" ~ (!"\"" ~ (escape_sequence | ANY))* ~ "\"" }
+escape_sequence = @{ "\\" ~ ("\"" | "\\" | "n" | "r" | "t") }
+symbol = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "?" | "!" | "'" | "$")* }
+
+// Symbol disallowed as identifiers
+reserved = @{ 
+    "module" | "import" | "if" | "then" | "else" | "match" | 
+    "case" | "of" | "where" | "let" | "in" | "true" | "false" 
+}
+
+// Quotation - core feature of Borf
+quotation = { 
+    "[" ~ params? ~ "->" ~ expr* ~ "]" 
+}
+
+params = { param+ }
+param = { symbol }
+
+// Assignment
+assignment = { expr ~ ":" ~ symbol }
+
+// Match expression components
+match_block = { "{" ~ pattern_case* ~ "}" }
+pattern_case = { "|" ~ pattern ~ "=>" ~ expr }
+
+// Patterns
+pattern = { 
+    "_" 
+  | number 
+  | string_literal
+  | symbol
+  | record_pattern
+  | quoted_pattern
+}
+
+record_pattern = { "{" ~ field_pattern* ~ "}" }
+field_pattern = { pattern ~ ":" ~ symbol }
+quoted_pattern = { "'" ~ pattern }
+
+// If expression components
+if_branches = { "[" ~ expr* ~ "]" ~ "[" ~ expr* ~ "]" }
+
+// Record expression
+record_expr = { "{" ~ field_expr* ~ "}" }
+field_expr = { expr ~ ":" ~ symbol }
+
+// Tuple expression
+tuple_expr = { "(" ~ expr* ~ ")" }
+
+// Meta-programming
+quoted_expr = { "'" ~ expr }
+unquoted_expr = { "$" ~ expr }
+quasiquoted_expr = { "`" ~ expr }
+
+// Stack effect declaration
+stack_effect = { "(" ~ stack_inputs ~ "--" ~ stack_outputs ~ ")" }
+stack_inputs = { stack_item* }
+stack_outputs = { stack_item* }
+stack_item = { symbol }
